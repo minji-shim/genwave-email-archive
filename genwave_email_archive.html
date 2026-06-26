@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GenWave 이메일 아카이브</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans KR',sans-serif;background:#f5f5f5;color:#111}
+.wrap{display:flex;height:100vh;overflow:hidden}
+/* Sidebar */
+.sb{width:280px;min-width:280px;background:#fff;border-right:1px solid #e5e5e5;display:flex;flex-direction:column;height:100vh}
+.sb-hd{padding:16px;border-bottom:1px solid #e5e5e5}
+.sb-title{font-size:14px;font-weight:600;color:#111;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between}
+.sb-title span{font-size:11px;background:#f0f0f0;color:#666;border-radius:20px;padding:2px 8px}
+.sb-search{position:relative}
+.sb-search input{width:100%;font-size:13px;padding:8px 10px 8px 32px;border-radius:8px;border:1px solid #e0e0e0;background:#fafafa;outline:none}
+.sb-search input:focus{border-color:#68FFD9;background:#fff}
+.sb-search::before{content:"🔍";position:absolute;left:9px;top:50%;transform:translateY(-50%);font-size:12px;pointer-events:none}
+.sb-filters{display:flex;gap:6px;padding:10px 16px;border-bottom:1px solid #e5e5e5;flex-wrap:wrap}
+.ftb{font-size:11px;padding:4px 10px;border-radius:20px;border:1px solid #e0e0e0;background:#fff;cursor:pointer;transition:all .15s;color:#555}
+.ftb.on{background:#0D0E1A;color:#68FFD9;border-color:#68FFD9}
+.email-list{flex:1;overflow-y:auto}
+.email-item{padding:12px 16px;border-bottom:1px solid #f0f0f0;cursor:pointer;transition:background .1s}
+.email-item:hover{background:#fafafa}
+.email-item.on{background:#0D0E1A}
+.email-item.on .ei-title{color:#68FFD9}
+.email-item.on .ei-date,.email-item.on .ei-preview{color:rgba(104,255,217,.5)}
+.ei-row{display:flex;justify-content:space-between;gap:6px;margin-bottom:3px}
+.ei-title{font-size:12px;font-weight:500;color:#111;line-height:1.4;flex:1}
+.ei-date{font-size:10px;color:#999;white-space:nowrap}
+.ei-preview{font-size:11px;color:#777;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:5px}
+.tag{display:inline-block;font-size:10px;padding:2px 8px;border-radius:20px}
+.tag-u{background:#e8f9f3;color:#2a8a5a;border:1px solid #b8e8d0}
+.tag-e{background:#e8f0ff;color:#4060cc;border:1px solid #c0d0f0}
+.tag-v{background:#fff8e0;color:#aa7700;border:1px solid #ffe080}
+/* Main panel */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.tab-bar{display:flex;background:#fff;border-bottom:1px solid #e5e5e5;flex-shrink:0}
+.tbb{font-size:12px;padding:12px 16px;border:none;background:transparent;color:#888;cursor:pointer;border-bottom:2px solid transparent;transition:all .15s}
+.tbb.on{color:#111;border-bottom-color:#68FFD9;font-weight:600}
+.tbb:hover:not(.on){color:#333;background:#fafafa}
+.panel{flex:1;overflow-y:auto;display:none;flex-direction:column}
+.panel.show{display:flex}
+/* Preview */
+.prev-hd{padding:12px 20px;border-bottom:1px solid #e5e5e5;background:#fff;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-shrink:0}
+.prev-title{font-size:14px;font-weight:600;color:#111;margin-bottom:2px}
+.prev-info{font-size:11px;color:#777}
+.prev-btns{display:flex;gap:6px;flex-shrink:0}
+.btn{font-size:11px;padding:6px 12px;border-radius:8px;border:1px solid #e0e0e0;background:#fff;cursor:pointer;color:#555;transition:all .15s}
+.btn:hover{background:#f5f5f5;border-color:#ccc}
+.iframe-wrap{flex:1}
+.iframe-wrap iframe{width:100%;height:100%;border:none;min-height:500px}
+/* Stats */
+.stats-body{padding:20px}
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.stat-card{background:#fff;border:1px solid #e5e5e5;border-radius:10px;padding:16px}
+.stat-label{font-size:11px;color:#999;margin-bottom:6px}
+.stat-val{font-size:24px;font-weight:600;color:#111;margin-bottom:2px}
+.stat-sub{font-size:11px;color:#888}
+.stat-bar{height:3px;background:#eee;border-radius:2px;margin-top:8px;overflow:hidden}
+.stat-bar-fill{height:100%;border-radius:2px}
+.stats-2col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
+.stats-blk{background:#fff;border:1px solid #e5e5e5;border-radius:10px;padding:16px}
+.blk-title{font-size:12px;font-weight:600;color:#111;margin-bottom:10px}
+.link-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f0f0f0;font-size:12px;gap:8px}
+.link-row:last-child{border-bottom:none}
+.link-url{color:#4060cc;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;font-size:11px}
+.link-cnt{font-weight:600;color:#111;flex-shrink:0}
+.dev-row{display:flex;align-items:center;gap:8px;padding:5px 0}
+.dev-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.dev-name{font-size:11px;color:#666;width:60px;flex-shrink:0}
+.dev-bar-w{flex:1;height:5px;background:#eee;border-radius:3px;overflow:hidden}
+.dev-bar-f{height:100%;border-radius:3px}
+.dev-pct{font-size:11px;font-weight:600;width:38px;text-align:right;flex-shrink:0}
+/* Compare */
+.cmp-body{padding:20px}
+.cmp-section{background:#fff;border:1px solid #e5e5e5;border-radius:10px;padding:16px;margin-bottom:16px}
+.cmp-title{font-size:12px;font-weight:600;margin-bottom:12px;color:#111}
+.cmp-row{display:flex;align-items:center;gap:10px;padding:6px 4px;border-bottom:1px solid #f5f5f5;cursor:pointer;border-radius:6px}
+.cmp-row:last-child{border-bottom:none}
+.cmp-row:hover{background:#fafafa}
+.cmp-num{font-size:10px;color:#bbb;width:14px;flex-shrink:0}
+.cmp-name{font-size:11px;color:#111;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.cmp-bw{width:100px;height:6px;background:#eee;border-radius:3px;flex-shrink:0;overflow:hidden}
+.cmp-bf{height:100%;border-radius:3px}
+.cmp-pct{font-size:11px;font-weight:600;width:46px;text-align:right;flex-shrink:0}
+/* Timeline */
+.tl-body{padding:20px}
+.tl-wrap{position:relative;padding-left:22px}
+.tl-line{position:absolute;left:8px;top:10px;bottom:10px;width:2px;background:#e5e5e5;border-radius:2px}
+.tl-item{position:relative;margin-bottom:14px}
+.tl-dot{position:absolute;left:-17px;top:8px;width:10px;height:10px;border-radius:50%;border:2px solid #f5f5f5}
+.tl-card{background:#fff;border:1px solid #e5e5e5;border-radius:10px;padding:14px;cursor:pointer;transition:border-color .15s}
+.tl-card:hover{border-color:#aaa}
+.tl-card.on{border-color:#68FFD9}
+.tl-date{font-size:10px;color:#999;margin-bottom:3px}
+.tl-t{font-size:12px;font-weight:600;color:#111;line-height:1.4;margin-bottom:5px}
+.tl-s{display:flex;gap:12px;font-size:11px;color:#888;margin-top:4px}
+.best{display:inline-block;font-size:9px;padding:1px 6px;border-radius:10px;background:#e8f9f0;color:#2a8a5a;border:1px solid #b8e8d0;margin-left:5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="sb">
+    <div class="sb-hd">
+      <div class="sb-title">이메일 아카이브 <span id="cnt">6</span></div>
+      <div class="sb-search"><input type="text" placeholder="제목 검색" id="q" oninput="rList()"></div>
+    </div>
+    <div class="sb-filters">
+      <button class="ftb on" data-tag="all" onclick="setTag(this)">전체</button>
+      <button class="ftb" data-tag="update" onclick="setTag(this)">업데이트</button>
+      <button class="ftb" data-tag="engage" onclick="setTag(this)">리인게이지</button>
+      <button class="ftb" data-tag="event" onclick="setTag(this)">이벤트</button>
+    </div>
+    <div class="email-list" id="elist"></div>
+  </div>
+  <div class="main">
+    <div class="tab-bar">
+      <button class="tbb on" onclick="stab('preview',this)">📧 미리보기</button>
+      <button class="tbb" onclick="stab('stats',this)">📊 성과</button>
+      <button class="tbb" onclick="stab('compare',this)">📈 전체 비교</button>
+      <button class="tbb" onclick="stab('timeline',this)">🗓 타임라인</button>
+    </div>
+    <div class="panel show" id="tp">
+      <div class="prev-hd">
+        <div style="min-width:0;flex:1">
+          <div class="prev-title" id="psubj">-</div>
+          <div class="prev-info" id="pinfo">-</div>
+        </div>
+        <div class="prev-btns">
+          <button class="btn" id="cpbtn" onclick="cpHtml()">📋 HTML 복사</button>
+          <button class="btn" onclick="dlHtml()">💾 저장</button>
+        </div>
+      </div>
+      <div class="iframe-wrap"><iframe id="eif" title="이메일 미리보기"></iframe></div>
+    </div>
+    <div class="panel" id="ts"><div class="stats-body" id="scon"></div></div>
+    <div class="panel" id="tcmp"><div class="cmp-body" id="cmpcon"></div></div>
+    <div class="panel" id="ttl"><div class="tl-body" id="tlcon"></div></div>
+  </div>
+</div>
+<script>
+var emails=[
+  {id:1,subj:"GenWave 대규모 업데이트! 더 편리해진 로그인과 스마트한 생성 기능",date:"2025.10.28",prev:"로그인 방식 변경 + 지니🧞 기능 안내",tag:"update",tl:"업데이트",tc:"tag-u",col:"#3aaa8a",
+   s:{d:1276,dr:98.7,o:198,or:15.5,c:11,cr:0.9,u:3,ur:.2,at:"2025.10.28",
+      lk:[{u:"genwave.ploonet.com/login",c:10},{u:"genwave.ploonet.com/",c:3}],
+      dv:[{n:"기타",p:38.8,col:"#888"},{n:"Gmail",p:34.9,col:"#EA4335"},{n:"데스크탑",p:13.3,col:"#4285F4"},{n:"모바일",p:12.9,col:"#34A853"}]},
+   html:"<html><body><div style='padding:20px;font-family:noto sans kr,Malgun Gothic,arial,sans-serif;max-width:630px;margin:0 auto'><div style='background:#5DB686;height:8px;border-radius:4px 4px 0 0'></div><div style='background:#fff;padding:24px;border:1px solid #ddd'><h2 style='color:#5db686;font-size:24px;margin-bottom:12px'>GenWave✨ 새로운 업데이트 소식</h2><p style='margin-bottom:12px'>여러분이 주신 피드백 덕분에 <b>GenWave가 한층 더 편리하고 똑똑해졌어요.</b></p><p style='margin-bottom:8px'><b>1️⃣ 로그인 방식 변경</b></p><ul style='margin:0 0 12px 20px'><li>ID+비밀번호 및 구글·카카오·애플 SNS 로그인 지원</li><li style='color:red'>🙅 휴대폰 인증 로그인 종료</li></ul><p style='margin-bottom:8px'><b>2️⃣ 새로운 기능</b></p><ul style='margin:0 0 20px 20px'><li>콘텐츠 프롬프트 미리보기 — 크레딧 절약</li><li>AI 프롬프트 ON/OFF — 생성 방식 직접 선택</li><li>대화로 수정하는 지니🧞 기능</li></ul><div style='text-align:center;margin-bottom:16px'><a href='https://genwave.ploonet.com/' style='display:inline-block;background:#5EFEBB;padding:14px 28px;border-radius:4px;text-decoration:none;color:#000;font-weight:bold'>지금 새로운 기능 써보러 가기</a></div><p style='text-align:center;font-size:12px;color:#888'>CTA: 계정 전환하기 / 새로운 기능 써보러 가기</p></div><p style='text-align:center;font-size:12px;color:#999;margin-top:12px'>다이퀘스트 · mkt@diquest.com</p></div></body></html>"},
+  {id:2,subj:"GenWave 클로즈 베타 안내드립니다.",date:"2025.02.07",prev:"완전히 새로운 생성 방식 + 베타 참여 혜택",tag:"engage",tl:"리인게이지",tc:"tag-e",col:"#4285F4",
+   s:{d:1536,dr:98.0,o:261,or:17.0,c:20,cr:1.3,u:0,ur:0,at:"2025.02.07",
+      lk:[{u:"genwave.ploonet.com/",c:26},{u:"stib.ee/nTCL",c:4}],
+      dv:[{n:"기타",p:39.9,col:"#888"},{n:"Gmail",p:30.2,col:"#EA4335"},{n:"데스크탑",p:15.5,col:"#4285F4"},{n:"모바일",p:14.4,col:"#34A853"}]},
+   html:"<html><body><div style='padding:20px;font-family:noto sans kr,Malgun Gothic,arial,sans-serif;max-width:630px;margin:0 auto'><div style='text-align:center;padding:24px'><h1 style='color:#4a9d70;font-size:28px;margin-bottom:8px'>GenWave 클로즈 베타 안내드립니다.</h1><p style='color:#4a9d70;font-size:14px'>젠웨이브가 완전히 다른 새로운 생성 방식으로 개편되어<br><b>2월 11일부터 2주간</b> 클로즈 베타를 진행합니다.</p></div><div style='background:#F1EAE2;padding:24px'><h2 style='font-size:20px;margin-bottom:12px'>이번 개편, 핵심만 말하자면</h2><p style='font-size:14px;margin-bottom:8px'>GenWave에 요즘 잘 나가는 모델들, 전부 모였습니다🔥</p><p style='font-size:14px;font-weight:bold;margin-bottom:12px'>🍌 Nano Banana Pro / 🖼️ GPT-image / 🎬 Sora 2 / ⚡ Hailuo 2.3 / 📹 Vidu / 🎵 Suno AI</p><h3 style='font-size:18px;margin-bottom:8px'>클로즈 베타 진행 안내</h3><ul style='font-size:14px;margin-left:20px'><li>기간: <b>2월 11일(수) ~ 2월 25일(수)</b></li><li>2주간 크레딧 차감 없음</li><li>오픈 베타 시 <b>웰컴백 크레딧 50</b> 제공</li><li>버그 제보/설문 참여 시 <b>추가 크레딧 50</b></li></ul></div><div style='text-align:center;padding:20px'><a href='https://genwave.ploonet.com/' style='display:inline-block;background:#5DB686;padding:14px 28px;border-radius:500px;text-decoration:none;color:#fff'>젠웨이브 오랜만에 다시 만나볼까요?</a></div><p style='text-align:center;font-size:12px;color:#999'>(주) 다이퀘스트 · mkt@diquest.com</p></div></body></html>"},
+  {id:3,subj:"드디어 시작! Closed Beta 2.11 - 2.25",date:"2025.02.11",prev:"클로즈 베타 시작 + 피드백 요청",tag:"event",tl:"이벤트",tc:"tag-v",col:"#FBBC04",
+   s:{d:1528,dr:98.1,o:217,or:14.2,c:20,cr:1.3,u:1,ur:.1,at:"2025.02.11",
+      lk:[{u:"genwave.ploonet.com/",c:23},{u:"forms.gle/ZnkYB4jsLZNP39EL9",c:7},{u:"forms.gle/nM5zUPAgNHzG6P8q7",c:6}],
+      dv:[{n:"기타",p:44.5,col:"#888"},{n:"Gmail",p:26.3,col:"#EA4335"},{n:"모바일",p:14.9,col:"#34A853"},{n:"데스크탑",p:14.3,col:"#4285F4"}]},
+   html:"<html><body><div style='padding:20px;font-family:noto sans kr,Malgun Gothic,arial,sans-serif;max-width:630px;margin:0 auto;background:#F0EAE3'><h1 style='font-size:40px;font-weight:bold;padding:20px'>드디어 시작!<br>Closed Beta<br>2.11 - 2.25</h1><div style='padding:0 20px 20px'><h2 style='font-size:18px;margin-bottom:16px'>드디어 시작합니다. 새로워진 GenWave를 만나보세요.</h2><h3 style='font-size:16px;margin-bottom:8px'>이번 클로즈 베타, 이렇게 써보세요</h3><ul style='font-size:14px;margin-left:20px;margin-bottom:16px'><li>1️⃣ <b>한국어로 작성해도 생성!</b> — [프롬프트 제안] 클릭</li><li>2️⃣ <b>여러 AI 모델 비교!</b> — Midjourney vs Nano Banana Pro 등</li><li>3️⃣ <b>마음에 드는 결과는 Pick!</b> — 프롬프트 살짝 수정 후 재생성</li><li>4️⃣ <b>탐색해서 완성도 높이기</b> — 다른 사람 결과물 변형</li></ul><p style='text-align:center;font-size:14px;margin-bottom:20px'><b>📅 기간: 2월 11일(수) - 2월 25(수) · 크레딧 차감 없음!</b></p><h3 style='font-size:20px;margin-bottom:12px;text-align:center'>피드백을 알려주세요.</h3><ul style='font-size:14px;margin-left:20px'><li>사용 중 불편한 점, 좋았던 점 모두 남겨주세요.</li><li>참여자 전원 오픈 베타 시 50크레딧 지급</li></ul><div style='background:#fff;text-align:center;padding:20px;margin-top:16px'><a href='https://genwave.ploonet.com/' style='display:inline-block;background:#000;padding:14px 28px;border-radius:500px;text-decoration:none;color:#fff'>지금 바로 시작하기</a></div></div></div></body></html>"},
+  {id:4,subj:"[재발송] GenWave 클로즈 베타 — \"또 메일이야?\" 하셨다면",date:"2025.02.09",prev:"\"또 메일이야?\" 공감 오프닝 · 베타 재참여 유도",tag:"engage",tl:"리인게이지",tc:"tag-e",col:"#4285F4",
+   s:{d:1536,dr:98.5,o:297,or:19.3,c:16,cr:1.0,u:3,ur:.2,at:"2025.02.09",
+      lk:[{u:"genwave.ploonet.com/",c:21},{u:"stib.ee/gvHL",c:4}],
+      dv:[{n:"Gmail",p:48.9,col:"#EA4335"},{n:"기타",p:33.3,col:"#888"},{n:"모바일",p:10.2,col:"#34A853"},{n:"데스크탑",p:7.7,col:"#4285F4"}]},
+   html:"<html><body><div style='padding:20px;font-family:noto sans kr,Malgun Gothic,arial,sans-serif;max-width:630px;margin:0 auto'><div style='border-top:2px solid #5DB686;padding:16px;background:#fff'><p style='font-weight:bold;margin-bottom:4px'>안녕하세요, GenWave 입니다 👋</p><p style='font-weight:bold;margin-bottom:4px'>\"또 메일이야?\" 하고 클릭하셨다면,</p><p style='font-weight:bold'>죄송합니다. 하지만 꼭 다시 말씀드리고 싶었어요.</p></div><div style='border-top:2px solid #5DB686'></div><div style='background:#F1EAE2;padding:24px'><h2 style='font-size:20px;margin-bottom:12px'>이번 개편, 핵심만 말하자면</h2><p style='font-size:14px;margin-bottom:8px'>AI 생성 툴 5개 구독 월 10만원 vs <b>GenWave 하나면 월 3만원</b></p><p style='font-size:14px;margin-bottom:12px'>Midjourney, Runway, Nano Banana Pro, Suno AI... 따로따로 결제하고 학습법 배우느라 고생하셨죠?</p><p style='font-size:14px;font-weight:bold;margin-bottom:4px'>이제 GenWave에서</p><ul style='font-size:14px;margin-left:20px;margin-bottom:16px'><li>✅ 한국어로 편하게</li><li>✅ 여러 개 구독할 필요 없이</li><li>✅ 하나의 프롬프트로 여러 AI 모델 결과 비교</li><li>✅ 마음에 드는 거 선택해서 프롬프트만 살짝 고쳐 재생성</li></ul><h3 style='font-size:20px;margin-bottom:8px'>클로즈 베타 혜택</h3><ul style='font-size:14px;margin-left:20px'><li>기간: <b>2월 11일(수) ~ 2월 25일(수)</b></li><li>☑️ 2주간 크레딧 차감 없음</li><li>☑️ 오픈 베타 전환 시(3/6) 웰컴백 크레딧 50</li><li>☑️ 버그 제보 또는 설문 피드백 시 추가 크레딧 50</li></ul></div><div style='text-align:center;padding:20px'><a href='https://genwave.ploonet.com/' style='display:inline-block;background:#5DB686;padding:14px 28px;border-radius:500px;text-decoration:none;color:#fff'>젠웨이브 오랜만에 다시 만나볼까요?</a></div><p style='text-align:center;font-size:12px;color:#999'>다이퀘스트 · mkt@diquest.com</p></div></body></html>"},
+  {id:5,subj:"[베타 진행 중] 저희만 쓰기 아쉬워서 자꾸 알려드려요",date:"2025.02.14",prev:"클로즈 베타 중간 독려 + 피드백 요청",tag:"event",tl:"이벤트",tc:"tag-v",col:"#FBBC04",
+   s:{d:1530,dr:98.3,o:196,or:12.8,c:8,cr:0.5,u:2,ur:.1,at:"2025.02.14",
+      lk:[{u:"genwave.ploonet.com/",c:8},{u:"forms.gle/ZnkYB4jsLZNP39EL9",c:4},{u:"forms.gle/nM5zUPAgNHzG6P8q7",c:3}],
+      dv:[{n:"기타",p:48.3,col:"#888"},{n:"Gmail",p:26.6,col:"#EA4335"},{n:"데스크탑",p:17.6,col:"#4285F4"},{n:"모바일",p:7.5,col:"#34A853"}]},
+   html:"<html><body><div style='font-family:noto sans kr,Malgun Gothic,arial,sans-serif;max-width:630px;margin:0 auto;background:#F0EAE3'><div style='padding:20px'><p style='font-size:16px;margin-bottom:12px'>\"또 메일이야?\"하고 하셨나요?<br>저희만 쓰기 아쉬워서 자꾸 알려드려요.</p><h1 style='font-size:32px;font-weight:bold;margin-bottom:16px'>드디어 시작!<br>Closed Beta<br>2.11 - 2.25</h1><h2 style='font-size:18px;margin-bottom:12px'>드디어 시작합니다. 새로워진 GenWave를 만나보세요.</h2><h3 style='font-size:14px;margin-bottom:8px'>이번 클로즈 베타, 이렇게 써보세요</h3><ul style='font-size:14px;margin-left:20px;margin-bottom:12px'><li>1️⃣ 한국어로 작성해도 생성!</li><li>2️⃣ AI 모델 비교 (Midjourney vs Nano Banana Pro 등)</li><li>3️⃣ 마음에 드는 결과는 Pick!</li><li>4️⃣ 탐색해서 완성도 높이기</li></ul><p style='text-align:center;font-size:14px;margin-bottom:20px'><b>📅 기간: 2월 11일(수) - 2월 25(수) · 크레딧 차감 없음!</b></p><h3 style='font-size:20px;margin-bottom:8px;text-align:center'>피드백을 알려주세요.</h3><ul style='font-size:14px;margin-left:20px'><li>불편한 점, 좋았던 점 남겨주세요. 3월 오픈 베타에 반영합니다.</li><li>참여자 전원 50크레딧 지급</li></ul><div style='background:#fff;text-align:center;padding:20px;margin-top:16px'><p style='margin-bottom:12px'>클로즈베타는 지금만 열려 있어요.</p><a href='https://genwave.ploonet.com/' style='display:inline-block;background:#000;padding:14px 28px;border-radius:500px;text-decoration:none;color:#fff'>지금 바로 시작하기</a></div></div><p style='text-align:center;font-size:12px;color:#999;padding:12px'>다이퀘스트 · mkt@diquest.com</p></div></body></html>"},
+  {id:6,subj:"GenWave 오픈 베타 시작 🚀 + 런칭 이벤트 (크레딧 30% 추가)",date:"2026.03.06",prev:"오픈 베타 전환 + 도메인 변경 + 유료 플랜 런칭 이벤트",tag:"event",tl:"이벤트",tc:"tag-v",col:"#EA4335",
+   s:{d:1585,dr:97.4,o:331,or:20.9,c:31,cr:2.0,u:0,ur:0,at:"2026.03.06",
+      lk:[{u:"genwave.ai.kr/",c:17},{u:"genwave.ai.kr/subscribe",c:13},{u:"genwave.ai.kr (http)",c:3}],
+      dv:[{n:"Gmail",p:45.4,col:"#EA4335"},{n:"기타",p:31.3,col:"#888"},{n:"데스크탑",p:17.4,col:"#4285F4"},{n:"모바일",p:5.9,col:"#34A853"}]},
+   html:"<html><body><div style='font-family:noto sans kr,Malgun Gothic,arial,sans-serif;max-width:630px;margin:0 auto;background:#F0EAE3'><div style='padding:24px'><h1 style='font-size:26px;font-weight:bold;text-align:center;margin-bottom:20px'>GenWave 오픈 베타가<br>시작됩니다🚀</h1><div style='background:#fff;border-radius:8px;padding:20px;margin-bottom:16px'><p style='margin-bottom:8px'>안녕하세요. GenWave 팀입니다.</p><p style='margin-bottom:8px'>GenWave는 <b>2026년 3월 6일부터</b> 오픈 베타로 전환됩니다.</p><p><b>클로즈 베타 기간 동안 제공되었던 무료 사용 정책은 종료되며</b>, 오픈 베타부터는 <b>크레딧 기반 유료 플랜</b>으로 운영됩니다.</p></div><div style='text-align:center;padding:16px 0'><h2 style='font-size:20px;margin-bottom:12px'>🔥 오픈 베타 런칭 이벤트</h2><p style='font-size:16px;margin-bottom:8px'>오픈 베타 기간 동안 유료 플랜을 결제하시면<br><b>크레딧을 30% 추가로 지급해드립니다.</b></p><p style='font-size:16px;margin-bottom:4px'>📅 이벤트 기간: 2026.03.06 ~ 03.31</p><p style='font-size:14px;margin-bottom:16px'>신규 결제 및 기존 유료 회원 결제 모두 적용 (1회 한정)</p><a href='https://genwave.ai.kr/subscribe' style='display:inline-block;background:#000;padding:14px 28px;border-radius:500px;text-decoration:none;color:#fff;font-size:16px'>요금제 확인하기</a></div><div style='border-top:1px solid #ccc;margin:16px 0;padding-top:16px;text-align:center'><h2 style='font-size:18px;margin-bottom:8px'>🌐 GenWave 서비스 도메인이 변경되었습니다</h2><a href='https://genwave.ai.kr' style='font-size:20px;font-weight:bold;color:#00f;text-decoration:none'>genwave.ai.kr</a><p style='margin:8px 0'>기존 계정은 그대로 사용 가능하며 별도 회원가입 없이 로그인하여 이용하실 수 있습니다.</p><a href='https://genwave.ai.kr/' style='display:inline-block;background:#000;padding:14px 28px;border-radius:500px;text-decoration:none;color:#fff;font-size:16px;margin-top:8px'>GenWave 바로가기</a></div><div style='margin-top:16px;font-size:14px'><p style='margin-bottom:8px'>GenWave는 여러 생성형 AI 모델을 하나의 플랫폼에서 비교하며 이미지·영상·음악 콘텐츠를 생성할 수 있는 AI 콘텐츠 제작 플랫폼입니다.</p><p>앞으로도 더 좋은 서비스 경험을 제공할 수 있도록 지속적으로 개선해 나가겠습니다. 감사합니다.<br>GenWave 팀 드림</p></div></div><p style='text-align:center;font-size:12px;color:#999;padding:12px'>다이퀘스트 · mkt@diquest.com · 서울특별시 송파구 올림픽로 35길 123 향군타워 9층</p></div></body></html>"}
+,
+  {id:7,subj:"다시 오셨군요 😊 GenWave — 정식 오픈 + 키워드 검색 기능",date:"2026.03",prev:"정식 오픈 + 키워드 검색·재생성 기능 안내",tag:"update",tl:"업데이트",tc:"tag-u",col:"#3aaa8a",
+   s:{d:1633,dr:97.6,o:237,or:14.5,c:12,cr:0.7,u:1,ur:.1,at:"2026.03",
+      lk:[{u:"genwave.ai.kr/",c:11},{u:"genwave.ai.kr/subscribe",c:8},{u:"genwave.ploonet.com/",c:4}],
+      dv:[{n:"기타",p:40.7,col:"#888"},{n:"데스크탑",p:24.3,col:"#4285F4"},{n:"Gmail",p:23.7,col:"#EA4335"},{n:"모바일",p:11.2,col:"#34A853"}]},
+   html:"<html><body><div style='font-family:noto sans kr,Malgun Gothic,arial,sans-serif;max-width:630px;margin:0 auto;background:#F0EAE3'><div style='padding:24px'><h1 style='font-size:26px;font-weight:bold;text-align:center;margin-bottom:16px'>다시 오셨군요 😊 GenWave</h1><div style='background:#fff;border-radius:8px;padding:20px;margin-bottom:16px'><p style='margin-bottom:8px'>안녕하세요, GenWave입니다.</p><p style='margin-bottom:8px'>원하는 결과가 잘 나오지 않아 반복 생성해보신 적 있으신가요?</p><p style='margin-bottom:12px'>GenWave가 정식 오픈하며, 결과를 더 쉽게 찾고 활용할 수 있도록 개선했습니다.</p><p style='margin-bottom:8px'><b>이제는 검색하고 → 선택하고 → 원하는 방향으로 다듬습니다</b></p><ul style='margin-left:20px;margin-bottom:12px'><li>원하는 키워드 검색 (예: 봄, 꽃, 카페, 음식, 광고) → 다양한 결과 확인</li><li>마음에 드는 결과물 선택</li><li>프롬프트를 조금만 수정해 원하는 스타일로 재생성</li></ul><p style='margin-bottom:8px'>더 이상 처음부터 다시 만들 필요 없습니다.</p><p style='margin-bottom:12px'><b>모바일에서도</b> 바로 접속해 원하는 결과를 만들어보실 수 있습니다.</p><p>✔ 이미지 / 영상 / 음악 모두 생성 가능<br>✔ 다양한 AI 모델 활용<br>✔ 결과물 기반 재생성으로 제작 시간 단축</p><p style='margin-top:12px'>감사합니다. GenWave 드림</p></div><div style='text-align:center;margin:16px 0'><a href='https://genwave.ai.kr/' style='display:inline-block;background:#000;padding:16px 32px;border-radius:500px;text-decoration:none;color:#fff;font-size:18px;font-weight:bold'>지금 바로 생성 시작하기</a></div><div style='text-align:center;padding:16px 0'><h2 style='font-size:18px;margin-bottom:8px'>🔥 오픈 이벤트</h2><p style='margin-bottom:4px'>지금 유료 플랜을 결제하시면 <b>첫 결제 시 30% 추가 크레딧 혜택</b>이 적용됩니다.</p><p style='font-size:14px;font-style:italic;margin-bottom:16px'>(정식 오픈 기념 한정 혜택)</p><a href='https://genwave.ai.kr/subscribe' style='display:inline-block;background:#000;padding:14px 28px;border-radius:500px;text-decoration:none;color:#fff;font-size:16px'>혜택 받으러 가기</a></div></div><p style='text-align:center;font-size:12px;color:#999;padding:12px'>다이퀘스트 · mkt@diquest.com</p></div></body></html>"}
+,
+  {id:8,subj:"THANK YOU FOR VISITING — Diquest × KOBA 2026",date:"2026.05",prev:"KOBA 2026 부스 방문자 대상 팔로업 + KOBA2026 쿠폰",tag:"event",tl:"이벤트",tc:"tag-v",col:"#9A81FF",
+   s:{d:276,dr:97.5,o:141,or:51.1,c:23,cr:8.3,u:1,ur:.4,at:"2026.05",
+      lk:[{u:"genwave.ai.kr/",c:29},{u:"ploonetedu801b.myportfolio.com/work",c:6},{u:"stib.ee/DJgN",c:4},{u:"instagram.com/genwave_official/",c:2}],
+      dv:[{n:"데스크탑",p:37.2,col:"#4285F4"},{n:"모바일",p:21.4,col:"#34A853"},{n:"기타",p:20.9,col:"#888"},{n:"Gmail",p:20.5,col:"#EA4335"}]},
+   html:"<html><body><div style='font-family:noto sans kr,Malgun Gothic,arial,sans-serif;max-width:630px;margin:0 auto'><div style='background:#F6F4F0;padding:40px 24px 24px;text-align:center'><h1 style='font-size:36px;font-weight:bold;margin-bottom:8px'>THANK YOU FOR VISITING</h1><h2 style='font-size:18px;font-weight:bold'>Diquest ✖️ KOBA 2026</h2></div><div style='background:#F6F4F0;padding:0 24px 24px;text-align:center'><p>안녕하세요! 다이퀘스트입니다.</p><p style='margin-top:8px'>KOBA 2026에서 다이퀘스트 부스를 방문해주셔서 감사합니다.</p><p style='margin-top:8px'>이번 KOBA에서는 AI 기반 콘텐츠 제작 플랫폼 <b>GenWave</b>와 함께 다이퀘스트 AI 영상제작팀의 제작 사례 및 제작 방향을 소개드렸습니다.</p></div><div style='padding:20px 24px'><p style='margin-bottom:8px'><b>GenWave</b>는 이미지·영상·음악을 하나의 플랫폼에서 제작할 수 있는 AI 콘텐츠 제작 플랫폼입니다.</p><p><b>Nano Banana, Veo3, GPT Image, Suno</b> 등 최신 생성형 AI 모델을 한 곳에서 활용할 수 있으며, 여러 AI 모델 결과를 비교하며 원하는 스타일의 결과물을 손쉽게 제작할 수 있습니다.</p></div><div style='background:#F6F4F0;padding:20px 24px;text-align:center'><p style='font-size:18px;font-weight:bold;margin-bottom:8px'>🎁 KOBA 방문자 전용 혜택</p><p style='margin-bottom:4px'>결제 시 프로모션 코드 <b>KOBA2026</b> 입력 시<br>1개월 무료 이용 혜택을 제공드립니다.</p><p style='margin-bottom:4px'>사용 기한: <b>~ 5/22까지</b></p><p style='margin-bottom:4px'>적용 대상: Starter / Lite / Pro 플랜</p><p style='font-size:14px;color:#666'>※ 기간 종료 후에는 사용이 어려우니 참고 부탁드립니다.</p></div><div style='padding:20px 24px;text-align:center'><a href='https://genwave.ai.kr/' style='display:inline-block;background:#080028;padding:14px 28px;border-radius:500px;text-decoration:none;color:#fff;font-size:16px'>GenWave 바로가기</a></div><div style='padding:16px 24px'><p style='margin-bottom:8px'><b>다이퀘스트 AI 영상제작팀</b>에서는 생성형 AI 기반 workflow를 활용하여 <b>광고, 숏폼, 브랜드 콘텐츠, 홍보영상</b> 등 다양한 형태의 영상 제작을 함께 진행하고 있습니다.</p><p>AI 기반 콘텐츠 제작 및 영상 제작 관련 문의도 언제든 편하게 연락 부탁드립니다.</p></div><div style='text-align:center;padding:16px'><a href='https://ploonetedu801b.myportfolio.com/work' style='display:inline-block;background:#080028;padding:14px 28px;border-radius:500px;text-decoration:none;color:#fff;font-size:16px'>제작 문의하기</a></div><p style='text-align:center;font-size:12px;color:#999;padding:12px'>다이퀘스트 · mkt@diquest.com · 서울시 송파구 올림픽로35길 123 향군타워 9층</p></div></body></html>"}
+,
+  {id:9,subj:"다시 오셨군요 😊 — 복귀 감사 이벤트 (로그인 시 30크레딧 즉시 지급)",date:"2026.06",prev:"비활성 회원 복귀 유도 · 로그인 시 30크레딧 즉시 지급",tag:"engage",tl:"리인게이지",tc:"tag-e",col:"#4285F4",
+   s:{d:1808,dr:96.6,o:165,or:9.1,c:6,cr:0.3,u:1,ur:.1,at:"2026.06",
+      lk:[{u:"genwave.ai.kr/login",c:6}],
+      dv:[{n:"Gmail",p:54.1,col:"#EA4335"},{n:"기타",p:24.9,col:"#888"},{n:"데스크탑",p:16.0,col:"#4285F4"},{n:"모바일",p:5.0,col:"#34A853"}]},
+   html:"<html><body><div style='font-family:noto sans kr,Malgun Gothic,arial,sans-serif;max-width:630px;margin:0 auto;background:#F0EAE3'><div style='padding:24px'><h2 style='font-size:20px;font-weight:bold;margin-bottom:16px'>다시 오셨군요 😊</h2><div style='background:#fff;border-radius:8px;padding:20px;margin-bottom:16px'><p style='font-size:14px;margin-bottom:8px'>안녕하세요, GenWave입니다.</p><p style='font-size:14px;margin-bottom:8px'>오랜만입니다 😊<br>GenWave가 <b>정식 오픈</b>하면서 더 쉽고 빠르게 원하는 결과를 만들 수 있도록 새롭게 바뀌었습니다.</p><p style='font-size:14px;font-weight:bold;margin-bottom:6px'>✦ 이런 점이 새로워졌어요</p><p style='font-size:14px;margin-bottom:6px'>이제는 <b>검색 → 선택 → 수정</b>만으로 원하는 결과를 빠르게 만들 수 있습니다.</p><ul style='font-size:14px;margin-left:20px'><li><b>키워드 검색</b>으로 원하는 결과 바로 찾기</li><li><b>마음에 드는 결과를 따라서 만들어보기</b></li><li><b>템플릿 선택 후 바로 생성 — 프롬프트 없이도 OK</b></li><li>이제 <b>모바일</b>에서도 바로 사용 가능</li></ul></div><div style='text-align:center;padding:16px 0'><h2 style='font-size:16px;margin-bottom:4px'>🔥 복귀 감사 이벤트</h2><h3 style='font-size:18px;font-weight:bold;margin-bottom:8px'>🎁 로그인만 하면 30크레딧 즉시 지급!</h3><p style='font-size:14px;margin-bottom:4px'>지금 GenWave에 로그인하시면</p><p style='font-size:14px;margin-bottom:4px'><b>30크레딧</b>을 바로 지급해 드립니다.</p><p style='font-size:14px;margin-bottom:4px'>새로워진 기능을 직접 체험해보세요.</p><p style='font-size:12px;color:#666;margin-bottom:16px'>로그인 즉시 30크레딧이 자동 지급됩니다.</p><a href='https://genwave.ai.kr/login' style='display:inline-block;background:#000;padding:14px 28px;border-radius:500px;text-decoration:none;color:#fff;font-size:16px'>지금 바로 GenWave 열어보기</a></div></div><p style='text-align:center;font-size:12px;color:#999;padding:12px'>다이퀘스트 · mkt@diquest.com · 서울특별시 송파구 올림픽로 35길 123 향군타워 9층</p></div></body></html>"}
+];
+
+var aid=9,atag='all',atab='preview';
+
+function stab(tab,btn){
+  atab=tab;
+  document.querySelectorAll('.tbb').forEach(function(b){b.classList.remove('on')});
+  btn.classList.add('on');
+  ['tp','ts','tcmp','ttl'].forEach(function(id){document.getElementById(id).style.display='none'});
+  var show=tab==='preview'?'tp':tab==='stats'?'ts':tab==='compare'?'tcmp':'ttl';
+  document.getElementById(show).style.display='flex';
+  if(tab==='stats')rStats();
+  else if(tab==='compare')rCmp();
+  else if(tab==='timeline')rTl();
+}
+
+function rStats(){
+  var e=emails.find(function(x){return x.id===aid});
+  if(!e)return;
+  var s=e.s;
+  var maxD=Math.max.apply(null,s.dv.map(function(d){return d.p}));
+  var maxOr=Math.max.apply(null,emails.map(function(x){return x.s.or}));
+  var maxCr=Math.max.apply(null,emails.map(function(x){return x.s.cr}));
+  var html='<p style="font-size:13px;font-weight:600;margin-bottom:14px">발송 성과 <span style="font-size:11px;font-weight:400;color:#999">'+s.at+'</span></p>';
+  html+='<div class="stat-grid">';
+  html+='<div class="stat-card"><div class="stat-label">발송 성공</div><div class="stat-val">'+s.dr+'%</div><div class="stat-sub">'+s.d.toLocaleString()+'건</div><div class="stat-bar"><div class="stat-bar-fill" style="width:'+s.dr+'%;background:#68FFD9"></div></div></div>';
+  html+='<div class="stat-card"><div class="stat-label">오픈율'+(s.or===maxOr?'<span class="best">🏆 최고</span>':'')+'</div><div class="stat-val">'+s.or+'%</div><div class="stat-sub">'+s.o+'명</div><div class="stat-bar"><div class="stat-bar-fill" style="width:'+Math.min(s.or*3,100)+'%;background:#4285F4"></div></div></div>';
+  html+='<div class="stat-card"><div class="stat-label">클릭율'+(s.cr===maxCr?'<span class="best">🏆 최고</span>':'')+'</div><div class="stat-val">'+s.cr+'%</div><div class="stat-sub">'+s.c+'명</div><div class="stat-bar"><div class="stat-bar-fill" style="width:'+Math.min(s.cr*30,100)+'%;background:#FBBC04"></div></div></div>';
+  html+='<div class="stat-card"><div class="stat-label">수신거부</div><div class="stat-val">'+s.ur+'%</div><div class="stat-sub">'+s.u+'명</div><div class="stat-bar"><div class="stat-bar-fill" style="width:'+Math.min(s.ur*50,100)+'%;background:#EA4335"></div></div></div>';
+  html+='</div>';
+  html+='<div class="stats-2col">';
+  html+='<div><div class="blk-title">클릭 링크 TOP</div><div class="stats-blk">'+s.lk.map(function(l){return '<div class="link-row"><span class="link-url">'+l.u+'</span><span class="link-cnt">'+l.c+'회</span></div>'}).join('')+'</div></div>';
+  html+='<div><div class="blk-title">환경별 오픈</div><div class="stats-blk">'+s.dv.map(function(d){return '<div class="dev-row"><span class="dev-dot" style="background:'+d.col+'"></span><span class="dev-name">'+d.n+'</span><div class="dev-bar-w"><div class="dev-bar-f" style="width:'+(d.p/maxD*100).toFixed(0)+'%;background:'+d.col+';opacity:.7"></div></div><span class="dev-pct">'+d.p+'%</span></div>'}).join('')+'</div></div>';
+  html+='</div>';
+  document.getElementById('scon').innerHTML=html;
+}
+
+function rCmp(){
+  var maxOr=Math.max.apply(null,emails.map(function(e){return e.s.or}));
+  var maxCr=Math.max.apply(null,emails.map(function(e){return e.s.cr}));
+  var maxD=Math.max.apply(null,emails.map(function(e){return e.s.d}));
+  function rows(getVal,maxVal,color,suffix){
+    return emails.map(function(e){
+      var v=getVal(e),pct=(v/maxVal*100).toFixed(0);
+      var isMax=v===maxVal;
+      return '<div class="cmp-row" onclick="sel('+e.id+');stab(\'preview\',document.querySelector(\'.tbb\'))">'+
+        '<span class="cmp-num">'+e.id+'</span>'+
+        '<span class="cmp-name" title="'+e.subj+'">'+e.subj+'</span>'+
+        '<div class="cmp-bw"><div class="cmp-bf" style="width:'+pct+'%;background:'+(isMax?'#68FFD9':color)+'"></div></div>'+
+        '<span class="cmp-pct">'+v+suffix+(isMax?' 🏆':'')+'</span></div>';
+    }).join('');
+  }
+  document.getElementById('cmpcon').innerHTML=
+    '<div class="cmp-section"><div class="cmp-title">오픈율 비교</div>'+rows(function(e){return e.s.or},maxOr,'#4285F4','%')+'</div>'+
+    '<div class="cmp-section"><div class="cmp-title">클릭율 비교</div>'+rows(function(e){return e.s.cr},maxCr,'#FBBC04','%')+'</div>'+
+    '<div class="cmp-section"><div class="cmp-title">발송 규모 비교</div>'+rows(function(e){return e.s.d},maxD,'#aaa','')+'</div>';
+}
+
+function rTl(){
+  var html='<p style="font-size:13px;font-weight:600;margin-bottom:16px">캠페인 타임라인 <span style="font-size:11px;font-weight:400;color:#999">총 '+emails.length+'개</span></p>';
+  html+='<div class="tl-wrap"><div class="tl-line"></div>';
+  emails.forEach(function(e){
+    html+='<div class="tl-item"><div class="tl-dot" style="background:'+e.col+'"></div>'+
+      '<div class="tl-card'+(e.id===aid?' on':'')+'" onclick="sel('+e.id+');stab(\'preview\',document.querySelector(\'.tbb\'))">'+
+      '<div class="tl-date">'+e.date+'</div>'+
+      '<div class="tl-t">'+e.subj+'</div>'+
+      '<span class="tag '+e.tc+'">'+e.tl+'</span>'+
+      '<div class="tl-s"><span>📨 '+e.s.d.toLocaleString()+'</span><span>👁 '+e.s.or+'%</span><span>🖱 '+e.s.cr+'%</span></div>'+
+      '</div></div>';
+  });
+  html+='</div>';
+  document.getElementById('tlcon').innerHTML=html;
+}
+
+function rList(){
+  var q=document.getElementById('q').value.toLowerCase();
+  var f=emails.filter(function(e){
+    return(atag==='all'||e.tag===atag)&&(!q||e.subj.toLowerCase().indexOf(q)>-1||e.prev.toLowerCase().indexOf(q)>-1);
+  });
+  document.getElementById('cnt').textContent=f.length;
+  document.getElementById('elist').innerHTML=f.map(function(e){
+    return '<div class="email-item'+(e.id===aid?' on':'')+'" onclick="sel('+e.id+')">'+
+      '<div class="ei-row"><div class="ei-title">'+e.subj+'</div><div class="ei-date">'+e.date+'</div></div>'+
+      '<div class="ei-preview">'+e.prev+'</div>'+
+      '<span class="tag '+e.tc+'">'+e.tl+'</span></div>';
+  }).join('');
+}
+
+function sel(id){
+  aid=id;
+  var e=emails.find(function(x){return x.id===id});
+  if(!e)return;
+  document.getElementById('psubj').textContent=e.subj;
+  document.getElementById('pinfo').textContent=e.date+' · 발송 '+e.s.d.toLocaleString()+'건 · 오픈율 '+e.s.or+'%';
+  var iframe=document.getElementById('eif');
+  var doc=iframe.contentDocument||iframe.contentWindow.document;
+  doc.open();doc.write(e.html);doc.close();
+  if(atab==='stats')rStats();
+  if(atab==='compare')rCmp();
+  if(atab==='timeline')rTl();
+  rList();
+}
+
+function setTag(btn){
+  atag=btn.dataset.tag;
+  document.querySelectorAll('.ftb').forEach(function(b){b.classList.remove('on')});
+  btn.classList.add('on');
+  rList();
+}
+
+function cpHtml(){
+  var e=emails.find(function(x){return x.id===aid});
+  if(!e)return;
+  navigator.clipboard.writeText(e.html).then(function(){
+    var b=document.getElementById('cpbtn'),o=b.textContent;
+    b.textContent='✅ 복사됨!';
+    setTimeout(function(){b.textContent=o},1500);
+  });
+}
+
+function dlHtml(){
+  var e=emails.find(function(x){return x.id===aid});
+  if(!e)return;
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([e.html],{type:'text/html'}));
+  a.download=e.date+'_'+e.subj.substring(0,30)+'.html';
+  a.click();
+}
+
+rList();sel(6);
+</script>
+</body>
+</html>
